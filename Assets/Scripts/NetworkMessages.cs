@@ -8,7 +8,9 @@ namespace NetworkMessages
         PLAYER_UPDATE,
         SERVER_UPDATE,
         HANDSHAKE,
-        PLAYER_INPUT
+        PLAYER_INPUT,
+        PLAYER_JOIN,
+        PLAYER_MOVEMONT
     }
 
     [System.Serializable]
@@ -49,7 +51,29 @@ namespace NetworkMessages
             players = new List<NetworkObjects.NetworkPlayer>();
         }
     }
+    [System.Serializable]
+    public class PlayerJoinMsg : NetworkHeader
+    {
+        public Vector3 PlayerPos;
+        public float uniqueid;
+        public PlayerJoinMsg()
+        {      // Constructor
+            cmd = Commands.PLAYER_JOIN;
+            
+        }
+    }
+    [System.Serializable]
+    public class PlayerMovementMsg : NetworkHeader
+    {
+        public Vector3 PlayerPos;
+        public float uniqueid;
+        public PlayerMovementMsg()
+        {      // Constructor
+            cmd = Commands.PLAYER_MOVEMONT;
+        }
+    }
 } 
+
 
 namespace NetworkObjects
 {

@@ -5,13 +5,21 @@ using NetworkMessages;
 using NetworkObjects;
 using System;
 using System.Text;
+using UnityEngine.UIElements;
 
 public class NetworkClient : MonoBehaviour
 {
     public NetworkDriver m_Driver;
     public NetworkConnection m_Connection;
     public string serverIP;
+    //serverIp: 127.0.0.1
+    //hostIp:127.0.0.1
+    //18.222.83.238
     public ushort serverPort;
+    public GameObject playerPrefab;
+    public float UID;
+    public GameObject myself;
+    
 
     
     void Start ()
@@ -20,6 +28,8 @@ public class NetworkClient : MonoBehaviour
         m_Connection = default(NetworkConnection);
         var endpoint = NetworkEndPoint.Parse(serverIP,serverPort);
         m_Connection = m_Driver.Connect(endpoint);
+        UID = UnityEngine.Random.value;
+        
     }
     
     void SendToServer(string message){
@@ -31,7 +41,14 @@ public class NetworkClient : MonoBehaviour
 
     void OnConnect(){
         Debug.Log("We are now connected to the server");
-
+        GameObject playerTest = Instantiate(playerPrefab);
+        playerTest.AddComponent<PlayerMovement>();
+        PlayerJoinMsg m = new PlayerJoinMsg();
+        m.PlayerPos = playerTest.transform.position;
+        playerTest.GetComponent<PlayerID>().ID = UID;
+        myself = playerTest;
+        m.uniqueid = UID;
+        SendToServer(JsonUtility.ToJson(m));
         //// Example to send a handshake message:
         // HandshakeMsg m = new HandshakeMsg();
         // m.player.id = m_Connection.InternalId.ToString();
@@ -53,10 +70,26 @@ public class NetworkClient : MonoBehaviour
             PlayerUpdateMsg puMsg = JsonUtility.FromJson<PlayerUpdateMsg>(recMsg);
             Debug.Log("Player update message received!");
             break;
-            case Commands.SERVER_UPDATE:
-            ServerUpdateMsg suMsg = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
-            Debug.Log("Server update message received!");
+            case Commands.PLAYER_JOIN:
+            PlayerJoinMsg pjMsg = JsonUtility.FromJson<PlayerJoinMsg>(recMsg);
+            if(UID != pjMsg.uniqueid)
+            {
+                Instantiate(playerPrefab);
+            }
+            Debug.Log("Player join message received!");
             break;
+            case Commands.PLAYER_MOVEMONT:
+            PlayerMovementMsg pmMsg = JsonUtility.FromJson<PlayerMovementMsg>(recMsg);
+            Debug.Log("Player movement update message received!");
+                foreach(GameObject p in GameObject.FindGameObjectsWithTag("Player"))
+                {
+                    if(p != myself)
+                    {
+                        p.transform.position = pmMsg.PlayerPos;
+                    }
+                }
+            break;
+
             default:
             Debug.Log("Unrecognized message received!");
             break;
@@ -85,6 +118,15 @@ public class NetworkClient : MonoBehaviour
         {
             return;
         }
+
+        if(myself)
+        {
+            PlayerMovementMsg m = new PlayerMovementMsg();
+            m.PlayerPos = myself.transform.position;
+            m.uniqueid = UID;
+            SendToServer(JsonUtility.ToJson(m));
+        }
+        
 
         DataStreamReader stream;
         NetworkEvent.Type cmd;

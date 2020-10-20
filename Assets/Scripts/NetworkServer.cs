@@ -5,15 +5,18 @@ using Unity.Networking.Transport;
 using NetworkMessages;
 using System;
 using System.Text;
+using System.Collections.Generic;
 
 public class NetworkServer : MonoBehaviour
 {
     public NetworkDriver m_Driver;
     public ushort serverPort;
     private NativeList<NetworkConnection> m_Connections;
+    public List<PlayerJoinMsg> playerJoinMsgs;
 
     void Start ()
     {
+        playerJoinMsgs = new List<PlayerJoinMsg>();
         m_Driver = NetworkDriver.Create();
         var endpoint = NetworkEndPoint.AnyIpv4;
         endpoint.Port = serverPort;
@@ -38,9 +41,12 @@ public class NetworkServer : MonoBehaviour
     }
 
     void OnConnect(NetworkConnection c){
+        foreach (PlayerJoinMsg pj in playerJoinMsgs)
+        {
+           SendToClient(JsonUtility.ToJson(pj), c);
+        }
         m_Connections.Add(c);
         Debug.Log("Accepted a connection");
-
         //// Example to send a handshake message:
         // HandshakeMsg m = new HandshakeMsg();
         // m.player.id = c.InternalId.ToString();
@@ -66,6 +72,24 @@ public class NetworkServer : MonoBehaviour
             ServerUpdateMsg suMsg = JsonUtility.FromJson<ServerUpdateMsg>(recMsg);
             Debug.Log("Server update message received!");
             break;
+            case Commands.PLAYER_JOIN:
+            PlayerJoinMsg pjMsg = JsonUtility.FromJson<PlayerJoinMsg>(recMsg);
+            Debug.Log("Player join message received!");
+            playerJoinMsgs.Add(pjMsg);
+                foreach (NetworkConnection cp in m_Connections)
+                {
+                    SendToClient(JsonUtility.ToJson(pjMsg), cp);
+                }
+                break;
+            case Commands.PLAYER_MOVEMONT:
+            PlayerMovementMsg pmMsg = JsonUtility.FromJson<PlayerMovementMsg>(recMsg);
+            Debug.Log("Player movement update message received!");
+                foreach (NetworkConnection cp in m_Connections)
+                {
+                    SendToClient(JsonUtility.ToJson(pmMsg), cp);
+                }
+                break;
+
             default:
             Debug.Log("SERVER ERROR: Unrecognized message received!");
             break;
@@ -86,7 +110,6 @@ public class NetworkServer : MonoBehaviour
         {
             if (!m_Connections[i].IsCreated)
             {
-
                 m_Connections.RemoveAtSwapBack(i);
                 --i;
             }
